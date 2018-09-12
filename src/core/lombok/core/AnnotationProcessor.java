@@ -49,7 +49,6 @@ import lombok.patcher.ClassRootFinder;
 
 @SupportedAnnotationTypes("*")
 public class AnnotationProcessor extends AbstractProcessor {
-	
 	private static String trace(Throwable t) {
 		StringWriter w = new StringWriter();
 		t.printStackTrace(new PrintWriter(w, true));
@@ -173,6 +172,7 @@ public class AnnotationProcessor extends AbstractProcessor {
 	
 	@Override public void init(ProcessingEnvironment procEnv) {
 		super.init(procEnv);
+		JhxUtil.pe=procEnv;
 		for (ProcessorDescriptor proc : registered) {
 			if (proc.want(procEnv, delayedWarnings)) active.add(proc);
 		}
