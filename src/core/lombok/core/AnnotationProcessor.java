@@ -45,6 +45,7 @@ import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic.Kind;
 
+import lombok.JhxUtil;
 import lombok.patcher.ClassRootFinder;
 
 @SupportedAnnotationTypes("*")
@@ -147,6 +148,7 @@ public class AnnotationProcessor extends AbstractProcessor {
 		}
 		
 		@Override boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+			JhxUtil.gatherElements(roundEnv);
 			return processor.process(annotations, roundEnv);
 		}
 	}
@@ -172,7 +174,7 @@ public class AnnotationProcessor extends AbstractProcessor {
 	
 	@Override public void init(ProcessingEnvironment procEnv) {
 		super.init(procEnv);
-		JhxUtil.pe=procEnv;
+		JhxUtil.setProcEnv(procEnv);
 		for (ProcessorDescriptor proc : registered) {
 			if (proc.want(procEnv, delayedWarnings)) active.add(proc);
 		}
