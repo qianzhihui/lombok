@@ -15,6 +15,7 @@ import lombok.core.AST.Kind;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import java.util.List;
 
 /**
  * @author 钱智慧
@@ -25,35 +26,21 @@ public class HandleSameAs extends JavacAnnotationHandler<SameAs>{
     @Override
     public void handle(AnnotationValues<SameAs> annotation, JCTree.JCAnnotation ast, JavacNode annotationNode) {
         try{
-            for (Element element : JhxUtil.elementMap()) {
-                printElement(element);
-                for (Element item : element.getEnclosedElements()) {
-                    if(item.getKind()== ElementKind.FIELD){
-                        printElement(item);
-                        for (AnnotationMirror mirror : item.getAnnotationMirrors()) {
-                           // JhxUtil.warn(mirror.getAnnotationType()+"#"+mirror.getElementValues());
-                        }
-                    }
-                }
-                break;
-            }
-
-
+            String targetClsName= JhxUtil.getTargetClassName(annotation);
             JavacNode typeNode = annotationNode.up();
             for (JavacNode child : typeNode.down()) {
                 if(child.getKind()== Kind.FIELD){
-                    JCVariableDecl field = (JCVariableDecl) child.get();
-                    JavacTreeMaker maker = child.getTreeMaker();
-                    JCExpression arg = maker.Assign(maker.Ident(child.toName("message")), maker.Literal("不能为空"));
-                    JavacHandlerUtil.addAnnotation(field.mods,child,field.pos, JavacHandlerUtil.getGeneratedBy(field), typeNode.getContext(),
-                            "javax.validation.constraints.NotNull",arg);
+                    List<? extends AnnotationMirror> annotations = JhxUtil.annotationsOfField(targetClsName, child.getElement().toString());
+                    JhxUtil.addAnnotations(typeNode,child,annotations);
                 }
             }
         }catch (Throwable e){
-            JhxUtil.warn("发生了异常："+e.getMessage());
+            JhxUtil.err("发生了异常："+e);
+            for (StackTraceElement item : e.getStackTrace()) {
+                JhxUtil.err(item.getFileName()+"#"+item.getLineNumber()+"#"+item.getClassName());
+            }
         }
 
-//        annotationNode.addError("@Synchronized is legal only on methods.");
     }
 
     private void printElement(Element element){
