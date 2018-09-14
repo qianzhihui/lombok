@@ -98,7 +98,11 @@ public class JhxUtil {
                 }
             }
         }
-        return annoMap.get(key);
+        List<? extends AnnotationMirror> list = annoMap.get(key);
+        if (list == null) {
+            err("获取注解时有异常：" + annoMap);
+        }
+        return list;
     }
 
     private static String key(Element cls, Element field) {
@@ -127,5 +131,12 @@ public class JhxUtil {
 
     public static void err(Object message) {
         procEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, message.toString());
+    }
+
+    public static void err(JavacNode typeNode,Throwable e){
+        JhxUtil.err(e,typeNode.getElement());
+        for (StackTraceElement item : e.getStackTrace()) {
+            JhxUtil.err(item.getFileName()+"#"+item.getLineNumber()+"#"+item.getClassName());
+        }
     }
 }

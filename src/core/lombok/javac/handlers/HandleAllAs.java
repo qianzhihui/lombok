@@ -31,15 +31,8 @@ public class HandleAllAs extends JavacAnnotationHandler<AllAs>{
                 }
             }
         }catch (Throwable e){
-            JhxUtil.err(e,typeNode.getElement());
-            for (StackTraceElement item : e.getStackTrace()) {
-                JhxUtil.err(item.getFileName()+"#"+item.getLineNumber()+"#"+item.getClassName());
-            }
+            JhxUtil.err(typeNode, e);
         }
 
-    }
-
-    private void printElement(Element element){
-        JhxUtil.warn(element.toString()+"#"+element.getKind()+"#"+element.getSimpleName()+"#"+element.getClass());
     }
 }

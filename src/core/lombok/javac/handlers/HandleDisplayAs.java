@@ -26,8 +26,8 @@ public class HandleDisplayAs extends JavacAnnotationHandler<DisplayAs> {
         JavacNode typeNode = annotationNode.up();
         try {
             for (AnnotationMirror mirror : JhxUtil.getProcEnv().getElementUtils().getAllAnnotationMirrors(typeNode.getElement())) {
-                if(mirror.getAnnotationType().toString().equals(AllAs.class.getName())){
-                    JhxUtil.err("SameAs和SameDisplayAs不能同时使用#"+typeNode.getName(),typeNode.getElement());
+                if (mirror.getAnnotationType().toString().equals(AllAs.class.getName())) {
+                    JhxUtil.err("SameAs和SameDisplayAs不能同时使用#" + typeNode.getName(), typeNode.getElement());
                     return;
                 }
             }
@@ -38,10 +38,7 @@ public class HandleDisplayAs extends JavacAnnotationHandler<DisplayAs> {
                 }
             }
         } catch (Throwable e) {
-            JhxUtil.err(e,typeNode.getElement());
-            for (StackTraceElement item : e.getStackTrace()) {
-                JhxUtil.err(item.getFileName() + "#" + item.getLineNumber() + "#" + item.getClassName());
-            }
+            JhxUtil.err(typeNode, e);
         }
 
     }
