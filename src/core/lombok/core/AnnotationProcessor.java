@@ -148,7 +148,6 @@ public class AnnotationProcessor extends AbstractProcessor {
 		}
 		
 		@Override boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-			JhxUtil.gatherElements(roundEnv);
 			return processor.process(annotations, roundEnv);
 		}
 	}

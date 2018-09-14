@@ -4,17 +4,15 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.Context;
-import com.sun.tools.javac.util.Name;
 import lombok.core.AnnotationValues;
 import lombok.javac.JavacNode;
 import lombok.javac.JavacTreeMaker;
 import lombok.javac.handlers.JavacHandlerUtil;
-import org.netbeans.modules.java.JavaNode;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.*;
-import javax.swing.*;
+import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import java.lang.annotation.Annotation;
 import java.util.*;
@@ -23,7 +21,7 @@ import com.sun.tools.javac.tree.JCTree.*;
 
 public class JhxUtil {
     //key是类型+属性名，value是注解集合
-    private static Map<String, Element> elementMap = new HashMap<String, Element>();
+    private static Map<String, Set<Element>> elementMap = new HashMap<String, Set<Element>>();
     private static Map<String, List<? extends AnnotationMirror>> annoMap = new HashMap<String, List<? extends AnnotationMirror>>();
     private static ProcessingEnvironment procEnv;
 
@@ -35,18 +33,31 @@ public class JhxUtil {
         return procEnv;
     }
 
-    public static void addAnnotations(JavacNode typeNode, JavacNode child, List<? extends AnnotationMirror> annotations, boolean all) {
-        JCTree.JCVariableDecl field = (JCTree.JCVariableDecl) child.get();
+    public static void addAnnotations(JavacNode fieldNode, List<? extends AnnotationMirror> annotations, boolean all) {
+        if (annotations.isEmpty()) {
+            return;
+        }
+        JCTree.JCVariableDecl field = (JCTree.JCVariableDecl) fieldNode.get();
         JCTree.JCModifiers mods = field.mods;
-        JavacTreeMaker maker = child.getTreeMaker();
-        int pos = field.pos;
-        JCTree source = JavacHandlerUtil.getGeneratedBy(field);
-        Context context = typeNode.getContext();
+        JavacTreeMaker maker = fieldNode.getTreeMaker();
 
+        Set<String> selfAnnos = new HashSet<String>();
+        for (AnnotationMirror item : fieldNode.getElement().getAnnotationMirrors()) {
+            selfAnnos.add(item.getAnnotationType().toString());
+        }
         for (AnnotationMirror item : annotations) {
             String fullName = item.getAnnotationType().toString();
+            if (selfAnnos.contains(fullName)) {
+                continue;
+            }
+
 
             if (!all && !fullName.endsWith(".Display")) {
+                continue;
+            }
+
+            if (isSearchDateType(fieldNode.getElement()) && fullName.endsWith(".Display")) {
+                addDisplayForDateField(fieldNode, item);
                 continue;
             }
 
@@ -54,72 +65,118 @@ public class JhxUtil {
             for (ExecutableElement key : item.getElementValues().keySet()) {
 
                 AnnotationValue value = item.getElementValues().get(key);
-                JCTree.JCExpression arg = maker.Assign(maker.Ident(child.toName(key.getSimpleName().toString())), maker.Literal(value.getValue()));
+                JCTree.JCExpression arg = maker.Assign(maker.Ident(fieldNode.toName(key.getSimpleName().toString())), maker.Literal(value.getValue()));
                 args.add(arg);
             }
-            JCExpression annType = JavacHandlerUtil.chainDotsString(child, fullName);
+            JCExpression annType = JavacHandlerUtil.chainDotsString(fieldNode, fullName);
 
-//            annType.pos = pos;
-//            if (arg != null) {
-//                arg.pos = pos;
-//                if (arg instanceof JCTree.JCAssign) {
-//                    ((JCTree.JCAssign) arg).lhs.pos = pos;
-//                    ((JCTree.JCAssign) arg).rhs.pos = pos;
-//                }
-//            }
             JCExpression[] array = args.toArray(new JCTree.JCExpression[0]);
             com.sun.tools.javac.util.List<JCTree.JCExpression> list = com.sun.tools.javac.util.List.from(array);
             JCTree.JCAnnotation annotation = maker.Annotation(annType, list);
-//            annotation.pos = pos;
             mods.annotations = mods.annotations.append(annotation);
-
         }
     }
 
-    public static <T extends Annotation> Element getTargetType(AnnotationValues<T> annotation) {
+    private static void addDisplayForDateField(JavacNode fieldNode, AnnotationMirror item) {
+        JCTree.JCVariableDecl field = (JCTree.JCVariableDecl) fieldNode.get();
+        JCTree.JCModifiers mods = field.mods;
+        JavacTreeMaker maker = fieldNode.getTreeMaker();
+        String fullName = item.getAnnotationType().toString();
+
+        String prefix;
+        if (field.getName().toString().endsWith("From")) {
+            prefix = "起始";
+        } else {
+            prefix = "截止";
+        }
+
+        ArrayList<JCTree.JCExpression> args = new ArrayList<JCTree.JCExpression>();
+        for (ExecutableElement key : item.getElementValues().keySet()) {
+            AnnotationValue value = item.getElementValues().get(key);
+            JCTree.JCExpression arg = maker.Assign(maker.Ident(fieldNode.toName(key.getSimpleName().toString())), maker.Literal(prefix + value.getValue()));
+            args.add(arg);
+        }
+        JCExpression annType = JavacHandlerUtil.chainDotsString(fieldNode, fullName);
+
+        JCExpression[] array = args.toArray(new JCTree.JCExpression[0]);
+        com.sun.tools.javac.util.List<JCTree.JCExpression> list = com.sun.tools.javac.util.List.from(array);
+        JCTree.JCAnnotation annotation = maker.Annotation(annType, list);
+        mods.annotations = mods.annotations.append(annotation);
+    }
+
+    public static <T extends Annotation> String getTarget(AnnotationValues<T> annotation) {
         Object instance = annotation.getActualExpression("value");
         JCTree.JCFieldAccess tree = (JCTree.JCFieldAccess) instance;
         Symbol.TypeSymbol element = tree.selected.type.asElement();
+        String targetName = element.toString();
         if (!elementMap.containsKey(element.toString())) {
-            elementMap.put(element.toString(), element);
+            elementMap.put(targetName, new HashSet<Element>());
         }
-        return element;
+        for (TypeMirror item : procEnv.getTypeUtils().directSupertypes(tree.selected.type)) {
+            Type type = (Type) item;
+            elementMap.get(targetName).add(type.asElement());
+        }
+
+        elementMap.get(targetName).add(element);
+        return targetName;
     }
 
-    public static List<? extends AnnotationMirror> annotationsOfField(String clsName, String fieldName) {
-        String key = clsName + "#" + fieldName;
+    static class TargetModel {
+        //目标类名称
+        String name;
+
+        //目标类可能有父类，所以类元素可能不止一个
+        List<Element> elements = new ArrayList<Element>();
+    }
+
+    public static List<? extends AnnotationMirror> annotationsOfField(String targetName, String fieldName) {
+        String key = targetName + "#" + fieldName;
         if (!annoMap.containsKey(key)) {
-            if (!elementMap.containsKey(clsName)) {
+            if (!elementMap.containsKey(targetName)) {
                 return Collections.emptyList();
             }
-            for (Element item : elementMap.get(clsName).getEnclosedElements()) {
-                if (item.getKind() == ElementKind.FIELD) {
-                    annoMap.put(key(item.getEnclosingElement(), item), item.getAnnotationMirrors());
+            Set<Element> targets = elementMap.get(targetName);
+            for (Element target : targets) {
+                for (Element item : target.getEnclosedElements()) {
+                    if (item.getKind() == ElementKind.FIELD) {
+                        if (isDateType(item) && (fieldName.endsWith("From") || fieldName.endsWith("To"))) {
+                            annoMap.put(targetName + "#" + fieldName, item.getAnnotationMirrors());
+                        }
+                        annoMap.put(targetName + "#" + item, item.getAnnotationMirrors());
+                    }
                 }
             }
         }
-        List<? extends AnnotationMirror> list = annoMap.get(key);
-        if (list == null) {
-            err("获取注解时有异常：" + annoMap);
-        }
+        List<? extends AnnotationMirror> list = annoMap.get(key) == null ? Collections.<AnnotationMirror>emptyList() : annoMap.get(key);
+
         return list;
     }
 
-    private static String key(Element cls, Element field) {
-        return cls + "#" + field;
+
+    private static void printElement(Element element) {
+        warn(element + "#" + element.getKind() + "#" + element.getSimpleName() + "#" + element.getClass());
     }
 
-    public static void gatherElements(RoundEnvironment roundEnv) {
-
-        for (Element element : roundEnv.getElementsAnnotatedWith(Getter.class)) {
-            elementMap.put(element.toString(), element);
+    //判断field 元素是否是日期类型：LocalDate,LocaTime,LocalDateTime
+    private static boolean isDateType(Element fieldElement) {
+        if (fieldElement instanceof Symbol.VarSymbol) {
+            Symbol.VarSymbol var = (Symbol.VarSymbol) fieldElement;
+            String str = var.type.toString();
+            return str.endsWith(".LocalDateTime") || str.endsWith(".LocalDate") || str.endsWith(".LocalTime");
         }
-
-        for (Element element : roundEnv.getRootElements()) {
-            elementMap.put(element.toString(), element);
-        }
+        return false;
     }
 
+    private static boolean isSearchDateType(Element fieldElement) {
+        if (fieldElement instanceof Symbol.VarSymbol) {
+            Symbol.VarSymbol var = (Symbol.VarSymbol) fieldElement;
+            String str = var.type.toString();
+            boolean b = str.endsWith(".LocalDateTime") || str.endsWith(".LocalDate") || str.endsWith(".LocalTime");
+            String name = var.getSimpleName().toString();
+            return b && (name.endsWith("From") || name.endsWith("To"));
+        }
+        return false;
+    }
 
     public static void warn(Object message) {
         procEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, message.toString());
@@ -133,10 +190,10 @@ public class JhxUtil {
         procEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, message.toString());
     }
 
-    public static void err(JavacNode typeNode,Throwable e){
-        JhxUtil.err(e,typeNode.getElement());
+    public static void err(JavacNode typeNode, Throwable e) {
+        JhxUtil.err(e, typeNode.getElement());
         for (StackTraceElement item : e.getStackTrace()) {
-            JhxUtil.err(item.getFileName()+"#"+item.getLineNumber()+"#"+item.getClassName());
+            JhxUtil.err(item.getFileName() + "#" + item.getLineNumber() + "#" + item.getClassName());
         }
     }
 }

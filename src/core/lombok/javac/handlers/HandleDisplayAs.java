@@ -22,28 +22,24 @@ import java.util.List;
 public class HandleDisplayAs extends JavacAnnotationHandler<DisplayAs> {
     @Override
     public void handle(AnnotationValues<DisplayAs> annotation, JCTree.JCAnnotation ast, JavacNode annotationNode) {
-        Element target = JhxUtil.getTargetType(annotation);
         JavacNode typeNode = annotationNode.up();
         try {
             for (AnnotationMirror mirror : JhxUtil.getProcEnv().getElementUtils().getAllAnnotationMirrors(typeNode.getElement())) {
                 if (mirror.getAnnotationType().toString().equals(AllAs.class.getName())) {
-                    JhxUtil.err("SameAs和SameDisplayAs不能同时使用#" + typeNode.getName(), typeNode.getElement());
+                    JhxUtil.err("AllAs和DisplayAs不能同时使用#" + typeNode.getName(), typeNode.getElement());
                     return;
                 }
             }
             for (JavacNode child : typeNode.down()) {
                 if (child.getKind() == Kind.FIELD) {
-                    List<? extends AnnotationMirror> annotations = JhxUtil.annotationsOfField(target.toString(), child.getElement().toString());
-                    JhxUtil.addAnnotations(typeNode, child, annotations, false);
+                    String target = JhxUtil.getTarget(annotation);
+                    List<? extends AnnotationMirror> annotations = JhxUtil.annotationsOfField(target, child.getElement().toString());
+                    JhxUtil.addAnnotations(child, annotations, false);
                 }
             }
         } catch (Throwable e) {
             JhxUtil.err(typeNode, e);
         }
 
-    }
-
-    private void printElement(Element element) {
-        JhxUtil.warn(element.toString() + "#" + element.getKind() + "#" + element.getSimpleName() + "#" + element.getClass());
     }
 }
