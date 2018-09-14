@@ -115,7 +115,6 @@ public class JhxUtil {
         for (TypeMirror item : allSuperTypes(tree.selected.type)) {
             Type type = (Type) item;
             elementMap.get(targetName).add(type.asElement());
-            printElement(type.asElement());
         }
 
         elementMap.get(targetName).add(element);
