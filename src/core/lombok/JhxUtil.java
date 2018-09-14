@@ -22,6 +22,7 @@ import java.util.*;
 import com.sun.tools.javac.tree.JCTree.*;
 
 public class JhxUtil {
+    //由于编译的特殊性，这里使用Map提前缓存其实意义不大
     //key是类型+属性名，value是注解集合
     private static Map<String, Set<Element>> elementMap = new HashMap<String, Set<Element>>();
     private static Map<String, List<? extends AnnotationMirror>> annoMap = new HashMap<String, List<? extends AnnotationMirror>>();
@@ -131,6 +132,7 @@ public class JhxUtil {
         }
 
         elementMap.get(targetName).add(element);
+        warn(elementMap.size());
         return targetName;
     }
 
@@ -176,7 +178,7 @@ public class JhxUtil {
             }
         }
         List<? extends AnnotationMirror> list = annoMap.get(key) == null ? Collections.<AnnotationMirror>emptyList() : annoMap.get(key);
-
+        warn("annoMap size:"+annoMap.size());
         return list;
     }
 
