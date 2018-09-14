@@ -22,9 +22,9 @@ import java.util.List;
 public class HandleDisplayAs extends JavacAnnotationHandler<DisplayAs> {
     @Override
     public void handle(AnnotationValues<DisplayAs> annotation, JCTree.JCAnnotation ast, JavacNode annotationNode) {
+        Element target = JhxUtil.getTargetType(annotation);
+        JavacNode typeNode = annotationNode.up();
         try {
-            Element target = JhxUtil.getTargetType(annotation);
-            JavacNode typeNode = annotationNode.up();
             for (AnnotationMirror mirror : JhxUtil.getProcEnv().getElementUtils().getAllAnnotationMirrors(typeNode.getElement())) {
                 if(mirror.getAnnotationType().toString().equals(AllAs.class.getName())){
                     JhxUtil.err("SameAs和SameDisplayAs不能同时使用#"+typeNode.getName(),typeNode.getElement());
@@ -38,7 +38,7 @@ public class HandleDisplayAs extends JavacAnnotationHandler<DisplayAs> {
                 }
             }
         } catch (Throwable e) {
-            JhxUtil.err(e);
+            JhxUtil.err(e,typeNode.getElement());
             for (StackTraceElement item : e.getStackTrace()) {
                 JhxUtil.err(item.getFileName() + "#" + item.getLineNumber() + "#" + item.getClassName());
             }

@@ -21,9 +21,9 @@ import java.util.List;
 public class HandleAllAs extends JavacAnnotationHandler<AllAs>{
     @Override
     public void handle(AnnotationValues<AllAs> annotation, JCTree.JCAnnotation ast, JavacNode annotationNode) {
+        Element target= JhxUtil.getTargetType(annotation);
+        JavacNode typeNode = annotationNode.up();
         try{
-            Element target= JhxUtil.getTargetType(annotation);
-            JavacNode typeNode = annotationNode.up();
             for (JavacNode child : typeNode.down()) {
                 if(child.getKind()== Kind.FIELD){
                     List<? extends AnnotationMirror> annotations = JhxUtil.annotationsOfField(target.toString(), child.getElement().toString());
@@ -31,7 +31,7 @@ public class HandleAllAs extends JavacAnnotationHandler<AllAs>{
                 }
             }
         }catch (Throwable e){
-            JhxUtil.err(e);
+            JhxUtil.err(e,typeNode.getElement());
             for (StackTraceElement item : e.getStackTrace()) {
                 JhxUtil.err(item.getFileName()+"#"+item.getLineNumber()+"#"+item.getClassName());
             }
