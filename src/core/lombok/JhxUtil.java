@@ -1,5 +1,7 @@
 package lombok;
 
+import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Name;
@@ -17,6 +19,8 @@ import javax.tools.Diagnostic;
 import java.lang.annotation.Annotation;
 import java.util.*;
 
+import com.sun.tools.javac.tree.JCTree.*;
+
 public class JhxUtil {
     //key是类型+属性名，value是注解集合
     private static Map<String, Element> elementMap = new HashMap<String, Element>();
@@ -27,19 +31,11 @@ public class JhxUtil {
         JhxUtil.procEnv = procEnv;
     }
 
-    public static List<? extends AnnotationMirror> annotationsOfField(Element cls, Element field) {
-        String key = key(cls, field);
-        if (!annoMap.containsKey(key)) {
-            for (Element item : elementMap.get(cls.toString()).getEnclosedElements()) {
-                if (item.getKind() == ElementKind.FIELD) {
-                    annoMap.put(key(cls, item), item.getAnnotationMirrors());
-                }
-            }
-        }
-        return annoMap.get(key);
+    public static ProcessingEnvironment getProcEnv() {
+        return procEnv;
     }
 
-    public static void addAnnotations(JavacNode typeNode, JavacNode child, List<? extends AnnotationMirror> annotations) {
+    public static void addAnnotations(JavacNode typeNode, JavacNode child, List<? extends AnnotationMirror> annotations, boolean all) {
         JCTree.JCVariableDecl field = (JCTree.JCVariableDecl) child.get();
         JCTree.JCModifiers mods = field.mods;
         JavacTreeMaker maker = child.getTreeMaker();
@@ -48,16 +44,20 @@ public class JhxUtil {
         Context context = typeNode.getContext();
 
         for (AnnotationMirror item : annotations) {
+            String fullName = item.getAnnotationType().toString();
 
-            com.sun.tools.javac.util.List<JCTree.JCExpression> args=com.sun.tools.javac.util.List.nil();
+            if (!all && !fullName.endsWith(".Display")) {
+                continue;
+            }
+
+            ArrayList<JCTree.JCExpression> args = new ArrayList<JCTree.JCExpression>();
             for (ExecutableElement key : item.getElementValues().keySet()) {
 
                 AnnotationValue value = item.getElementValues().get(key);
-                JhxUtil.warn(key.getSimpleName()+"#"+value.getValue()+"#"+value.getClass());
-                JCTree.JCExpression arg = maker.Assign(maker.Ident(child.toName(key.getSimpleName().toString())), maker.Literal(value));
+                JCTree.JCExpression arg = maker.Assign(maker.Ident(child.toName(key.getSimpleName().toString())), maker.Literal(value.getValue()));
                 args.add(arg);
             }
-            String simpleName = item.getAnnotationType().toString();
+            JCExpression annType = JavacHandlerUtil.chainDotsString(child, fullName);
 
 //            annType.pos = pos;
 //            if (arg != null) {
@@ -67,22 +67,31 @@ public class JhxUtil {
 //                    ((JCTree.JCAssign) arg).rhs.pos = pos;
 //                }
 //            }
-            //JCTree.JCAnnotation annotation = maker.Annotation((JCTree) item.getAnnotationType().asElement(), args);
+            JCExpression[] array = args.toArray(new JCTree.JCExpression[0]);
+            com.sun.tools.javac.util.List<JCTree.JCExpression> list = com.sun.tools.javac.util.List.from(array);
+            JCTree.JCAnnotation annotation = maker.Annotation(annType, list);
 //            annotation.pos = pos;
-            //mods.annotations = mods.annotations.append(annotation);
+            mods.annotations = mods.annotations.append(annotation);
+
         }
     }
 
-    public static <T extends Annotation> String getTargetClassName(AnnotationValues<T> annotation) {
+    public static <T extends Annotation> Element getTargetType(AnnotationValues<T> annotation) {
         Object instance = annotation.getActualExpression("value");
         JCTree.JCFieldAccess tree = (JCTree.JCFieldAccess) instance;
-        String targetClsName = tree.selected.type.toString();
-        return targetClsName;
+        Symbol.TypeSymbol element = tree.selected.type.asElement();
+        if (!elementMap.containsKey(element.toString())) {
+            elementMap.put(element.toString(), element);
+        }
+        return element;
     }
 
     public static List<? extends AnnotationMirror> annotationsOfField(String clsName, String fieldName) {
         String key = clsName + "#" + fieldName;
         if (!annoMap.containsKey(key)) {
+            if (!elementMap.containsKey(clsName)) {
+                return Collections.emptyList();
+            }
             for (Element item : elementMap.get(clsName).getEnclosedElements()) {
                 if (item.getKind() == ElementKind.FIELD) {
                     annoMap.put(key(item.getEnclosingElement(), item), item.getAnnotationMirrors());
@@ -97,14 +106,25 @@ public class JhxUtil {
     }
 
     public static void gatherElements(RoundEnvironment roundEnv) {
+
         for (Element element : roundEnv.getElementsAnnotatedWith(Getter.class)) {
             elementMap.put(element.toString(), element);
         }
+
+        for (Element element : roundEnv.getRootElements()) {
+            elementMap.put(element.toString(), element);
+        }
+
+        warn(elementMap);
     }
 
 
     public static void warn(Object message) {
         procEnv.getMessager().printMessage(Diagnostic.Kind.WARNING, message.toString());
+    }
+
+    public static void err(Object message, Element element) {
+        procEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, message.toString(), element);
     }
 
     public static void err(Object message) {

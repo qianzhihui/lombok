@@ -4,17 +4,13 @@ import com.sun.tools.javac.tree.JCTree;
 import lombok.core.*;
 import lombok.javac.JavacAnnotationHandler;
 import lombok.javac.JavacNode;
-import lombok.javac.JavacTreeMaker;
 import lombok.JhxUtil;
-import lombok.SameAs;
+import lombok.AllAs;
 import org.mangosdk.spi.ProviderFor;
-import com.sun.tools.javac.tree.JCTree.JCExpression;
-import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import lombok.core.AST.Kind;
 
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import java.util.List;
 
 /**
@@ -22,20 +18,20 @@ import java.util.List;
  * date 9/12/18 4:07 PM
  */
 @ProviderFor(JavacAnnotationHandler.class)
-public class HandleSameAs extends JavacAnnotationHandler<SameAs>{
+public class HandleAllAs extends JavacAnnotationHandler<AllAs>{
     @Override
-    public void handle(AnnotationValues<SameAs> annotation, JCTree.JCAnnotation ast, JavacNode annotationNode) {
+    public void handle(AnnotationValues<AllAs> annotation, JCTree.JCAnnotation ast, JavacNode annotationNode) {
         try{
-            String targetClsName= JhxUtil.getTargetClassName(annotation);
+            Element target= JhxUtil.getTargetType(annotation);
             JavacNode typeNode = annotationNode.up();
             for (JavacNode child : typeNode.down()) {
                 if(child.getKind()== Kind.FIELD){
-                    List<? extends AnnotationMirror> annotations = JhxUtil.annotationsOfField(targetClsName, child.getElement().toString());
-                    JhxUtil.addAnnotations(typeNode,child,annotations);
+                    List<? extends AnnotationMirror> annotations = JhxUtil.annotationsOfField(target.toString(), child.getElement().toString());
+                    JhxUtil.addAnnotations(typeNode,child,annotations,true);
                 }
             }
         }catch (Throwable e){
-            JhxUtil.err("发生了异常："+e);
+            JhxUtil.err(e);
             for (StackTraceElement item : e.getStackTrace()) {
                 JhxUtil.err(item.getFileName()+"#"+item.getLineNumber()+"#"+item.getClassName());
             }
