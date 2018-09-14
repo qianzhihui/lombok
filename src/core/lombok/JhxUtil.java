@@ -112,14 +112,30 @@ public class JhxUtil {
         if (!elementMap.containsKey(element.toString())) {
             elementMap.put(targetName, new HashSet<Element>());
         }
-        for (TypeMirror item : procEnv.getTypeUtils().directSupertypes(tree.selected.type)) {
+        for (TypeMirror item : allSuperTypes(tree.selected.type)) {
             Type type = (Type) item;
             elementMap.get(targetName).add(type.asElement());
+            printElement(type.asElement());
         }
 
         elementMap.get(targetName).add(element);
         return targetName;
     }
+
+    private static Set<TypeMirror> allSuperTypes(TypeMirror root) {
+        Set<TypeMirror> ret = new HashSet<TypeMirror>();
+
+        List<? extends TypeMirror> directSupers = procEnv.getTypeUtils().directSupertypes(root);
+        for (TypeMirror item : directSupers) {
+            if (!item.toString().equals("java.lang.Object")) {
+                ret.add(item);
+                ret.addAll(allSuperTypes(item));
+            }
+        }
+
+        return ret;
+    }
+
 
     static class TargetModel {
         //目标类名称
