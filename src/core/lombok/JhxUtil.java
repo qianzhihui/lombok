@@ -1,8 +1,10 @@
 package lombok;
 
+import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.Context;
 import lombok.core.AnnotationValues;
 import lombok.javac.JavacNode;
@@ -61,13 +63,24 @@ public class JhxUtil {
                 continue;
             }
 
+            boolean hasAnno=false;
+
             ArrayList<JCTree.JCExpression> args = new ArrayList<JCTree.JCExpression>();
             for (ExecutableElement key : item.getElementValues().keySet()) {
-
                 AnnotationValue value = item.getElementValues().get(key);
+                //注解属性如果有枚举，则不支持
+                if(value.getClass().getName().endsWith("$Enum")){
+                    hasAnno=true;
+                    break;
+                }
                 JCTree.JCExpression arg = maker.Assign(maker.Ident(fieldNode.toName(key.getSimpleName().toString())), maker.Literal(value.getValue()));
                 args.add(arg);
             }
+
+            if(hasAnno){
+                continue;
+            }
+
             JCExpression annType = JavacHandlerUtil.chainDotsString(fieldNode, fullName);
 
             JCExpression[] array = args.toArray(new JCTree.JCExpression[0]);
