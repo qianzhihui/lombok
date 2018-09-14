@@ -114,8 +114,6 @@ public class JhxUtil {
         for (Element element : roundEnv.getRootElements()) {
             elementMap.put(element.toString(), element);
         }
-
-        warn(elementMap);
     }
 
 
