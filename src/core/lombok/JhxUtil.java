@@ -208,7 +208,7 @@ public class JhxUtil {
     public static void err(JavacNode typeNode, Throwable e) {
         JhxUtil.err(e, typeNode.getElement());
         for (StackTraceElement item : e.getStackTrace()) {
-            JhxUtil.err(item.getFileName() + "#" + item.getLineNumber() + "#" + item.getClassName());
+            JhxUtil.err(item.getFileName() + "#" + item.getLineNumber(),typeNode.getElement());
         }
     }
 }
