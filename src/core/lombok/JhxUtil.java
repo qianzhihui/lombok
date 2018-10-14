@@ -1,25 +1,20 @@
 package lombok;
 
-import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.tree.TreeMaker;
-import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.tree.JCTree.JCExpression;
 import lombok.core.AnnotationValues;
 import lombok.javac.JavacNode;
 import lombok.javac.JavacTreeMaker;
 import lombok.javac.handlers.JavacHandlerUtil;
 
 import javax.annotation.processing.ProcessingEnvironment;
-import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.*;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import java.lang.annotation.Annotation;
 import java.util.*;
-
-import com.sun.tools.javac.tree.JCTree.*;
 
 public class JhxUtil {
     //由于编译的特殊性，这里使用Map提前缓存其实意义不大
@@ -64,21 +59,21 @@ public class JhxUtil {
                 continue;
             }
 
-            boolean hasAnno=false;
+            boolean hasAnno = false;
 
             ArrayList<JCTree.JCExpression> args = new ArrayList<JCTree.JCExpression>();
             for (ExecutableElement key : item.getElementValues().keySet()) {
                 AnnotationValue value = item.getElementValues().get(key);
                 //注解属性如果有枚举，则不支持
-                if(value.getClass().getName().endsWith("$Enum")){
-                    hasAnno=true;
+                if (value.getClass().getName().endsWith("$Enum")) {
+                    hasAnno = true;
                     break;
                 }
                 JCTree.JCExpression arg = maker.Assign(maker.Ident(fieldNode.toName(key.getSimpleName().toString())), maker.Literal(value.getValue()));
                 args.add(arg);
             }
 
-            if(hasAnno){
+            if (hasAnno) {
                 continue;
             }
 
@@ -132,7 +127,6 @@ public class JhxUtil {
         }
 
         elementMap.get(targetName).add(element);
-        warn(elementMap.size());
         return targetName;
     }
 
@@ -162,23 +156,24 @@ public class JhxUtil {
     public static List<? extends AnnotationMirror> annotationsOfField(String targetName, String fieldName) {
         String key = targetName + "#" + fieldName;
         if (!annoMap.containsKey(key)) {
-            if (!elementMap.containsKey(targetName)) {
+            Set<Element> targets = elementMap.get(targetName);
+            if (targets == null) {
                 return Collections.emptyList();
             }
-            Set<Element> targets = elementMap.get(targetName);
             for (Element target : targets) {
                 for (Element item : target.getEnclosedElements()) {
                     if (item.getKind() == ElementKind.FIELD) {
-                        if (isDateType(item) && (fieldName.endsWith("From") || fieldName.endsWith("To"))) {
-                            annoMap.put(targetName + "#" + fieldName, item.getAnnotationMirrors());
+                        if (isDateType(item) && (fieldName.equals(item + "From") || fieldName.equals(item + "To"))) {
+                            annoMap.put(key, item.getAnnotationMirrors());
                         }
                         annoMap.put(targetName + "#" + item, item.getAnnotationMirrors());
                     }
                 }
             }
+
         }
+
         List<? extends AnnotationMirror> list = annoMap.get(key) == null ? Collections.<AnnotationMirror>emptyList() : annoMap.get(key);
-        warn("annoMap size:"+annoMap.size());
         return list;
     }
 
@@ -223,7 +218,7 @@ public class JhxUtil {
     public static void err(JavacNode typeNode, Throwable e) {
         JhxUtil.err(e, typeNode.getElement());
         for (StackTraceElement item : e.getStackTrace()) {
-            JhxUtil.err(item.getFileName() + "#" + item.getLineNumber(),typeNode.getElement());
+            JhxUtil.err(item.getFileName() + "#" + item.getLineNumber(), typeNode.getElement());
         }
     }
 }
